@@ -4,61 +4,57 @@
     "byMode": {
       "quick": {
         "speed": {
-          "id": "gpt-5-mini",
-          "name": "GPT-5 mini",
-          "provider": "OpenAI",
+          "id": "gpt-4o-mini",
+          "name": "GPT-4o mini",
+          "provider": "OpenRouter",
           "providerId": "openai",
           "providerOptions": {
             "openai": {
-              "reasoningEffort": "low",
-              "reasoningSummary": "auto"
+              "reasoningEffort": "low"
             }
           }
         },
         "quality": {
-          "id": "gpt-5.2",
-          "name": "GPT-5.2",
-          "provider": "OpenAI",
+          "id": "gpt-4o",
+          "name": "GPT-4o",
+          "provider": "OpenRouter",
           "providerId": "openai",
           "providerOptions": {
             "openai": {
-              "reasoningEffort": "low",
-              "reasoningSummary": "auto"
+              "reasoningEffort": "low"
             }
           }
         }
       },
       "adaptive": {
         "speed": {
-          "id": "gpt-5-mini",
-          "name": "GPT-5 mini",
-          "provider": "OpenAI",
+          "id": "gpt-4o-mini",
+          "name": "GPT-4o mini",
+          "provider": "OpenRouter",
           "providerId": "openai",
           "providerOptions": {
             "openai": {
-              "reasoningEffort": "medium",
-              "reasoningSummary": "auto"
+              "reasoningEffort": "medium"
             }
           }
         },
         "quality": {
-          "id": "gpt-5.2",
-          "name": "GPT-5.2",
-          "provider": "OpenAI",
+          "id": "gpt-4o",
+          "name": "GPT-4o",
+          "provider": "OpenRouter",
           "providerId": "openai",
           "providerOptions": {
             "openai": {
-              "reasoningEffort": "medium",
-              "reasoningSummary": "auto"
+              "reasoningEffort": "medium"
             }
           }
         }
       }
     },
     "relatedQuestions": {
-      "id": "gpt-4.1",
-      "name": "GPT-4.1",
-      "provider": "OpenAI",
+      "id": "gpt-4o-mini",
+      "name": "GPT-4o mini",
+      "provider": "OpenRouter",
       "providerId": "openai"
     }
   }

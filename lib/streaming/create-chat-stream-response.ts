@@ -133,7 +133,8 @@ export async function createChatStreamResponse(
           writer,
           parentTraceId,
           searchMode,
-          modelType
+          modelType,
+          userId: context.userId
         })
 
         // For OpenAI models, strip reasoning parts from UIMessages before conversion

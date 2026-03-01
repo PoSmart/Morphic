@@ -8,6 +8,7 @@ import type {
 
 import type { fetchTool } from '../tools/fetch'
 import type { createQuestionTool } from '../tools/question'
+import type { ragSearchTool } from '../tools/rag'
 import type { createSearchTool } from '../tools/search'
 import type { createTodoTools } from '../tools/todo'
 
@@ -16,6 +17,7 @@ export type ResearcherTools = {
   search: ReturnType<typeof createSearchTool>
   fetch: typeof fetchTool
   askQuestion: ReturnType<typeof createQuestionTool>
+  ragSearch: typeof ragSearchTool
 } & ReturnType<typeof createTodoTools>
 
 // Type alias for the researcher agent using ToolLoopAgent

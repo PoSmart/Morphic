@@ -1,21 +1,9 @@
-import { redirect } from 'next/navigation'
+import { AdvancedSearch } from '@/components/advanced-search'
 
-import { getCurrentUserId } from '@/lib/auth/get-current-user'
-import { generateUUID } from '@/lib/utils'
-
-import { Chat } from '@/components/chat'
-
-export const maxDuration = 60
-
-export default async function SearchPage(props: {
-  searchParams: Promise<{ q: string }>
-}) {
-  const { q } = await props.searchParams
-  if (!q) {
-    redirect('/')
-  }
-
-  const id = generateUUID()
-  const userId = await getCurrentUserId()
-  return <Chat id={id} query={q} isGuest={!userId} />
+export default function SearchPage() {
+  return (
+    <div className="flex flex-col h-screen pt-16">
+      <AdvancedSearch />
+    </div>
+  )
 }

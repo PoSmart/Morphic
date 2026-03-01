@@ -16,17 +16,15 @@ const runMigrations = async () => {
   const connectionString = process.env.DATABASE_URL
 
   // Respect DATABASE_SSL_DISABLED flag (used in Docker)
-  // For cloud databases (Supabase, Neon, etc.), use SSL with rejectUnauthorized: false
+  // For cloud databases (Supabase, Neon, etc.), use SSL
   // For local databases (Docker, localhost), disable SSL
   const sslDisabled = process.env.DATABASE_SSL_DISABLED === 'true'
-  const isProduction = process.env.NODE_ENV === 'production'
+  const isLocal = connectionString.includes('localhost') || connectionString.includes('postgres:5432')
 
   const sql = postgres(connectionString, {
-    ssl: sslDisabled
+    ssl: sslDisabled || isLocal
       ? false
-      : isProduction
-        ? { rejectUnauthorized: false }
-        : false,
+      : { rejectUnauthorized: false },
     prepare: false
   })
 

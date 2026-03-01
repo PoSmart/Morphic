@@ -49,7 +49,7 @@ if (isDevelopment) {
 const sslConfig =
   process.env.DATABASE_SSL_DISABLED === 'true'
     ? false // Disable SSL entirely for local PostgreSQL
-    : { rejectUnauthorized: true } // Enable SSL with verification for cloud DBs
+    : { rejectUnauthorized: false } // Use false for cloud DBs to avoid SELF_SIGNED_CERT_IN_CHAIN
 
 const client = postgres(connectionString, {
   ssl: sslConfig,

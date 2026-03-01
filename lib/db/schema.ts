@@ -2,16 +2,40 @@ import { createId } from '@paralleldrive/cuid2'
 import { InferSelectModel, sql } from 'drizzle-orm'
 import {
   check,
+  customType,
   index,
   integer,
   json,
   jsonb,
+  pgEnum,
   pgPolicy,
   pgTable,
   text,
   timestamp,
   varchar
 } from 'drizzle-orm/pg-core'
+
+// Custom type for pgvector
+const vector = customType<{
+  data: number[]
+  config: { dimensions: number }
+}>({
+  dataType(config) {
+    return `vector(${config?.dimensions ?? 1536})`
+  },
+  fromDriver(value: any) {
+    if (typeof value === 'string') {
+      return value
+        .slice(1, -1)
+        .split(',')
+        .map(v => parseFloat(v))
+    }
+    return value
+  },
+  toDriver(value: number[]) {
+    return `[${value.join(',')}]`
+  }
+})
 
 // Constants
 const ID_LENGTH = 191
@@ -21,6 +45,191 @@ const FILENAME_LENGTH = 1024
 
 // ID generation function
 export const generateId = () => createId()
+
+// Enums
+export const plansEnum = pgEnum('plan', ['anon', 'starter', 'pro', 'enterprise'])
+
+// SaaS Tables
+export const usersMetadata = pgTable(
+  'users_metadata',
+  {
+    id: varchar('id', { length: USER_ID_LENGTH }).primaryKey(),
+    plan: plansEnum('plan').default('anon').notNull(),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    usageLimit: integer('usage_limit').default(5).notNull(),
+    usageCurrent: integer('usage_current').default(0).notNull(),
+    lastResetAt: timestamp('last_reset_at').defaultNow().notNull()
+  },
+  table => [
+    index('users_metadata_stripe_customer_id_idx').on(table.stripeCustomerId),
+    pgPolicy('users_manage_own_metadata', {
+      as: 'permissive',
+      for: 'all',
+      to: 'public',
+      using: sql`id = current_setting('app.current_user_id', true)`,
+      withCheck: sql`id = current_setting('app.current_user_id', true)`
+    })
+  ]
+).enableRLS()
+
+export const entities = pgTable(
+  'entities',
+  {
+    id: varchar('id', { length: ID_LENGTH })
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    name: text('name').notNull(),
+    logo: text('logo'),
+    description: text('description'),
+    sector: text('sector'),
+    kpis: jsonb('kpis').$type<{
+      revenue: number
+      growthRate: number
+      marketShare: number
+      churn: number
+    }>(),
+    createdAt: timestamp('created_at').notNull().defaultNow()
+  },
+  table => [
+    index('entities_name_idx').on(table.name),
+    pgPolicy('anyone_can_read_entities', {
+      as: 'permissive',
+      for: 'select',
+      to: 'public',
+      using: sql`true`
+    })
+  ]
+).enableRLS()
+
+export const teams = pgTable(
+  'teams',
+  {
+    id: varchar('id', { length: ID_LENGTH })
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    name: text('name').notNull(),
+    ownerId: varchar('owner_id', { length: USER_ID_LENGTH }).references(
+      () => usersMetadata.id
+    )
+  },
+  table => [
+    index('teams_owner_id_idx').on(table.ownerId),
+    pgPolicy('owners_manage_teams', {
+      as: 'permissive',
+      for: 'all',
+      to: 'public',
+      using: sql`owner_id = current_setting('app.current_user_id', true)`,
+      withCheck: sql`owner_id = current_setting('app.current_user_id', true)`
+    })
+  ]
+).enableRLS()
+
+export const teamMembers = pgTable(
+  'team_members',
+  {
+    teamId: varchar('team_id', { length: ID_LENGTH })
+      .notNull()
+      .references(() => teams.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: USER_ID_LENGTH })
+      .notNull()
+      .references(() => usersMetadata.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: VARCHAR_LENGTH }).default('member').notNull(),
+    apiQuota: integer('api_quota').default(0).notNull()
+  },
+  table => [
+    index('team_members_team_id_idx').on(table.teamId),
+    index('team_members_user_id_idx').on(table.userId),
+    pgPolicy('members_read_team_info', {
+      as: 'permissive',
+      for: 'select',
+      to: 'public',
+      using: sql`user_id = current_setting('app.current_user_id', true)`
+    })
+  ]
+).enableRLS()
+
+export const favoriteLists = pgTable(
+  'favorite_lists',
+  {
+    id: varchar('id', { length: ID_LENGTH })
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: varchar('user_id', { length: USER_ID_LENGTH }).references(
+      () => usersMetadata.id
+    ),
+    teamId: varchar('team_id', { length: ID_LENGTH }).references(() => teams.id),
+    name: text('name').notNull()
+  },
+  table => [
+    index('favorite_lists_user_id_idx').on(table.userId),
+    index('favorite_lists_team_id_idx').on(table.teamId),
+    pgPolicy('users_manage_own_favorite_lists', {
+      as: 'permissive',
+      for: 'all',
+      to: 'public',
+      using: sql`user_id = current_setting('app.current_user_id', true)`,
+      withCheck: sql`user_id = current_setting('app.current_user_id', true)`
+    })
+  ]
+).enableRLS()
+
+export const favoriteEntities = pgTable(
+  'favorite_entities',
+  {
+    listId: varchar('list_id', { length: ID_LENGTH })
+      .notNull()
+      .references(() => favoriteLists.id, { onDelete: 'cascade' }),
+    entityId: varchar('entity_id', { length: ID_LENGTH })
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    order: integer('order').notNull()
+  },
+  table => [
+    index('favorite_entities_list_id_idx').on(table.listId),
+    pgPolicy('users_manage_own_favorite_entities', {
+      as: 'permissive',
+      for: 'all',
+      to: 'public',
+      using: sql`EXISTS (
+        SELECT 1 FROM ${favoriteLists}
+        WHERE ${favoriteLists}.id = list_id
+        AND ${favoriteLists}.user_id = current_setting('app.current_user_id', true)
+      )`,
+      withCheck: sql`EXISTS (
+        SELECT 1 FROM ${favoriteLists}
+        WHERE ${favoriteLists}.id = list_id
+        AND ${favoriteLists}.user_id = current_setting('app.current_user_id', true)
+      )`
+    })
+  ]
+).enableRLS()
+
+export const knowledgeBase = pgTable(
+  'knowledge_base',
+  {
+    id: varchar('id', { length: ID_LENGTH })
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    userId: varchar('user_id', { length: USER_ID_LENGTH }).references(
+      () => usersMetadata.id
+    ),
+    teamId: varchar('team_id', { length: ID_LENGTH }).references(() => teams.id),
+    content: text('content').notNull(),
+    embedding: vector('embedding', { dimensions: 1536 })
+  },
+  table => [
+    index('knowledge_base_user_id_idx').on(table.userId),
+    index('knowledge_base_team_id_idx').on(table.teamId),
+    pgPolicy('users_manage_own_knowledge_base', {
+      as: 'permissive',
+      for: 'all',
+      to: 'public',
+      using: sql`user_id = current_setting('app.current_user_id', true)`,
+      withCheck: sql`user_id = current_setting('app.current_user_id', true)`
+    })
+  ]
+).enableRLS()
 
 // Chats table
 export const chats = pgTable(

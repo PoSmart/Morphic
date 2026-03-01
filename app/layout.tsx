@@ -65,6 +65,9 @@ export default async function RootLayout({
     user = supabaseUser
   }
 
+  // If ENABLE_AUTH is false, consider we have a "system" user for SaaS features visibility
+  const hasUser = !!user || process.env.ENABLE_AUTH === 'false'
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -80,7 +83,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <SidebarProvider defaultOpen>
-            <AppSidebar hasUser={!!user} />
+            <AppSidebar hasUser={hasUser} />
             <div className="flex flex-col flex-1 min-w-0">
               <Header user={user} />
               <main className="flex flex-1 min-h-0 min-w-0 overflow-hidden">

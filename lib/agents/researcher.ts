@@ -11,6 +11,7 @@ import { type Model } from '@/lib/types/models'
 
 import { fetchTool } from '../tools/fetch'
 import { createQuestionTool } from '../tools/question'
+import { ragSearchTool } from '../tools/rag'
 import { createSearchTool } from '../tools/search'
 import { createTodoTools } from '../tools/todo'
 import { SearchMode } from '../types/search'
@@ -21,6 +22,28 @@ import {
   ADAPTIVE_MODE_PROMPT,
   QUICK_MODE_PROMPT
 } from './prompts/search-mode-prompts'
+
+// Enhanced wrapper function for RAG tool to inject IDs
+function wrapRagTool(
+  originalTool: typeof ragSearchTool,
+  userId?: string,
+  teamId?: string
+) {
+  return tool({
+    description: originalTool.description,
+    inputSchema: originalTool.inputSchema,
+    execute: async (params: any, context: any) => {
+      return originalTool.execute!(
+        {
+          ...params,
+          userId: userId || params.userId,
+          teamId: teamId || params.teamId
+        },
+        context
+      )
+    }
+  })
+}
 
 // Enhanced wrapper function with better type safety and streaming support
 function wrapSearchToolForQuickMode<
@@ -76,7 +99,9 @@ export function createResearcher({
   writer,
   parentTraceId,
   searchMode = 'adaptive',
-  modelType
+  modelType,
+  userId,
+  teamId
 }: {
   model: string
   modelConfig?: Model
@@ -84,6 +109,8 @@ export function createResearcher({
   parentTraceId?: string
   searchMode?: SearchMode
   modelType?: ModelType
+  userId?: string
+  teamId?: string
 }) {
   try {
     const currentDate = new Date().toLocaleString()
@@ -92,6 +119,7 @@ export function createResearcher({
     const originalSearchTool = createSearchTool(model)
     const askQuestionTool = createQuestionTool(model)
     const todoTools = writer ? createTodoTools() : {}
+    const activeRagTool = wrapRagTool(ragSearchTool, userId, teamId)
 
     let systemPrompt: string
     let activeToolsList: (keyof ResearcherTools)[] = []
@@ -102,10 +130,10 @@ export function createResearcher({
     switch (searchMode) {
       case 'quick':
         console.log(
-          '[Researcher] Quick mode: maxSteps=20, tools=[search, fetch]'
+          '[Researcher] Quick mode: maxSteps=20, tools=[search, fetch, ragSearch]'
         )
         systemPrompt = QUICK_MODE_PROMPT
-        activeToolsList = ['search', 'fetch']
+        activeToolsList = ['search', 'fetch', 'ragSearch']
         maxSteps = 20
         searchTool = wrapSearchToolForQuickMode(originalSearchTool)
         break
@@ -113,7 +141,7 @@ export function createResearcher({
       case 'adaptive':
       default:
         systemPrompt = ADAPTIVE_MODE_PROMPT
-        activeToolsList = ['search', 'fetch']
+        activeToolsList = ['search', 'fetch', 'ragSearch']
         // Only enable todo tools for quality model type
         if (writer && 'todoWrite' in todoTools && modelType === 'quality') {
           activeToolsList.push('todoWrite')
@@ -131,6 +159,7 @@ export function createResearcher({
       search: searchTool,
       fetch: fetchTool,
       askQuestion: askQuestionTool,
+      ragSearch: activeRagTool,
       ...todoTools
     } as ResearcherTools
 

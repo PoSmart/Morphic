@@ -1,5 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        '*.app.github.dev',
+        '*.github.dev',
+        '*.preview.app.github.dev',
+        '*.codespaces.github.dev',
+        'localhost:3000'
+      ]
+    }
+  },
   images: {
     remotePatterns: [
       {
