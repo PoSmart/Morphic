@@ -1,7 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { User } from '@supabase/supabase-js'
 import { Heart, Link2, LogOut, Palette, Search, Shield, Users } from 'lucide-react'

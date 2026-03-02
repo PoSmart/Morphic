@@ -1,48 +1,23 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
-import { UIMessage } from 'ai'
+import { getEntityById } from '@/lib/actions/entities'
+import { isFavorite } from '@/lib/actions/favorites'
 
-import { loadChat } from '@/lib/actions/chat'
-import { getCurrentUserId } from '@/lib/auth/get-current-user'
+import { EntityDetail } from '@/components/entity-detail'
 
-import { Chat } from '@/components/chat'
-
-export const maxDuration = 60
-
-export async function generateMetadata(props: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await props.params
-  const userId = await getCurrentUserId()
-
-  const chat = await loadChat(id, userId)
-
-  if (!chat) {
-    return { title: 'Search' }
-  }
-
-  return {
-    title: chat.title.toString().slice(0, 50) || 'Search'
-  }
-}
-
-export default async function SearchPage(props: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await props.params
-  const userId = await getCurrentUserId()
-
-  const chat = await loadChat(id, userId)
-
-  if (!chat) {
+export default async function EntityPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const entity = await getEntityById(id)
+  
+  if (!entity) {
     notFound()
   }
 
-  if (chat.visibility === 'private' && !userId) {
-    redirect('/auth/login')
-  }
+  const favorite = await isFavorite(entity.id)
 
-  const messages: UIMessage[] = chat.messages
-
-  return <Chat id={id} savedMessages={messages} isGuest={!userId} />
+  return (
+    <div className="flex flex-col min-h-screen pt-16 bg-background">
+      <EntityDetail entity={entity} isInitialFavorite={favorite} />
+    </div>
+  )
 }

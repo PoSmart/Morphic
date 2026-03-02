@@ -82,12 +82,20 @@ export const entities = pgTable(
     name: text('name').notNull(),
     logo: text('logo'),
     description: text('description'),
-    sector: text('sector'),
+    industry: text('industry'),
+    location: text('location'),
     kpis: jsonb('kpis').$type<{
       revenue: number
       growthRate: number
       marketShare: number
       churn: number
+      profit: number
+      margin: number
+    }>(),
+    metrics: jsonb('metrics').$type<{
+      revenueHistory: { year: number; value: number }[]
+      profitHistory: { year: number; value: number }[]
+      characteristics: { trait: string; value: number }[]
     }>(),
     createdAt: timestamp('created_at').notNull().defaultNow()
   },

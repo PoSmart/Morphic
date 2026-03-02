@@ -1,9 +1,10 @@
 'use server'
 
+import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
+
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { db } from '@/lib/db'
 import { entities } from '@/lib/db/schema'
-import { desc, ilike, and, gte, lte } from 'drizzle-orm'
 
 export async function getEntities(params: {
   search?: string
@@ -11,36 +12,46 @@ export async function getEntities(params: {
   maxRevenue?: number
   minGrowth?: number
   maxGrowth?: number
+  industries?: string[]
+  locations?: string[]
 }) {
-  console.log('[ACTION] getEntities called with params:', params)
   const userId = await getCurrentUserId()
-  console.log('[ACTION] userId:', userId)
   
-  // Allow if we have a userId OR if auth is disabled
   if (!userId && process.env.ENABLE_AUTH !== 'false') {
     throw new Error('Unauthorized')
   }
-
-  // Note: RLS is enabled on entities table in schema.ts
-  // but we are using drizzle here. If we want to respect RLS with drizzle,
-  // we usually need to set the current_user_id in the session.
-  // For now, let's just fetch them as it's a read operation that is allowed to 'public' in schema.ts:
-  // pgPolicy('anyone_can_read_entities', { for: 'select', to: 'public', using: sql`true` })
-
-  let query = db.select().from(entities)
 
   const conditions = []
   if (params.search) {
     conditions.push(ilike(entities.name, `%${params.search}%`))
   }
+
+  if (params.industries && params.industries.length > 0) {
+    conditions.push(inArray(entities.industry, params.industries))
+  }
+
+  if (params.locations && params.locations.length > 0) {
+    conditions.push(inArray(entities.location, params.locations))
+  }
   
-  // JSONB extraction for KPIs might be tricky with ilike/gte/lte in Drizzle
-  // For simplicity, we could fetch all and filter in memory if the dataset is small,
-  // or use sql`` for JSONB fields.
+  if (params.minRevenue !== undefined) {
+    conditions.push(sql`(entities.kpis->>'revenue')::numeric >= ${params.minRevenue}`)
+  }
+  if (params.maxRevenue !== undefined) {
+    conditions.push(sql`(entities.kpis->>'revenue')::numeric <= ${params.maxRevenue}`)
+  }
+  if (params.minGrowth !== undefined) {
+    conditions.push(sql`(entities.kpis->>'growthRate')::numeric >= ${params.minGrowth}`)
+  }
+  if (params.maxGrowth !== undefined) {
+    conditions.push(sql`(entities.kpis->>'growthRate')::numeric <= ${params.maxGrowth}`)
+  }
   
-  const results = await db.select().from(entities).where(and(...conditions)).orderBy(desc(entities.createdAt))
+  const results = await db.select()
+    .from(entities)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(entities.createdAt))
   
-  // Map back to the UI structure
   return results.map(e => ({
     id: e.id,
     name: e.name,
@@ -49,6 +60,19 @@ export async function getEntities(params: {
     revenue: e.kpis?.revenue || 0,
     growth: e.kpis?.growthRate || 0,
     marketShare: e.kpis?.marketShare || 0,
-    sector: e.sector || 'Uncategorized'
+    industry: e.industry || 'Uncategorized',
+    location: e.location || 'Unknown'
   }))
+}
+
+export async function getEntityById(id: string) {
+  if (!id) return null
+  
+  const userId = await getCurrentUserId()
+  if (!userId && process.env.ENABLE_AUTH !== 'false') {
+    throw new Error('Unauthorized')
+  }
+
+  const results = await db.select().from(entities).where(eq(entities.id, id))
+  return results[0] || null
 }

@@ -78,7 +78,10 @@ export async function getCurrentUserId() {
       )
     }
 
-    return process.env.ANONYMOUS_USER_ID || 'anonymous-user'
+    const anonId = process.env.ANONYMOUS_USER_ID || 'anonymous-user'
+    // Ensure metadata exists for anonymous user to avoid FK violations
+    await getOrCreateUserMetadata(anonId)
+    return anonId
   }
 
   const user = await getCurrentUser()
